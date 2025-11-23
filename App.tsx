@@ -10,6 +10,7 @@ import LoginScreen from "./screens/LoginScreen";
 import RegisterScreen from "./screens/RegisterScreen";
 import ChatScreen from "./screens/ChatScreen";
 
+
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
@@ -49,21 +50,21 @@ export default function App() {
           <Stack.Screen 
             name="Chat" 
             component={ChatScreen}
-            options={{ title: "Chat Room" }}
+            options={{ headerShown: false }}
             initialParams={{ name: user.email || "User"}}
           />
-        ) : (
+          ) : (
           // Blum login
           <>
             <Stack.Screen 
               name="Login" 
               component={LoginScreen}
-              options={{ title: "Masuk Aplikasi" }}
+              options={{ headerShown: false }}
             />
             <Stack.Screen
               name="Register"
               component={RegisterScreen}
-              options={{ title: "Daftar Akun Baru" }}
+              options={{ headerShown: false }}
             />
           </>
         )}
