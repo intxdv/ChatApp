@@ -15,6 +15,7 @@ import {
   FlatList,
   StyleSheet,
   KeyboardAvoidingView,
+  PermissionsAndroid,
   Platform,
   Image,
 } from "react-native";
@@ -46,6 +47,28 @@ export default function ChatScreen({ route }: Props) {
   const { name } = route.params;
   const [message, setMessage] = useState<string>("");
   const [messages, setMessages] = useState<MessageType[]>([]);
+  const requestPermission = async() => {
+    if (Platform.OS !== 'android') return true;
+
+    try {
+      const permission = Platform.Version >= 33
+        ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
+        : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;   
+      const granted = await PermissionsAndroid.request(permission, {
+        title: "Izin Akses Galeri",
+        message: "Aplikasi butuh akses galeri untuk mengirim gambar.",
+        buttonNeutral: "Nanti",
+        buttonNegative: "Tolak",
+        buttonPositive: "Izinkan",
+      });
+
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  };
+
 
   useEffect(() => {
     // const q = query(messagesCollection, orderBy("createdAt", "asc"));
@@ -118,7 +141,7 @@ const uploadImage = async (uri: string) => {
         resolve(xhr.response);
       };
       xhr.onerror = function (e) {
-        console.log("XHR Error:", e);
+        console.log("XHR Error Detail:", e);
         reject(new TypeError("Network request failed during Blob conversion"));
       };
       xhr.responseType = "blob";
@@ -127,8 +150,8 @@ const uploadImage = async (uri: string) => {
     });
 
     // 2. Upload ke Firebase
-    const filename = 'chat_${Date.now()}.jpg';
-    const storageRef = ref(storage, 'images/${filename}');
+    const filename = `chat_${Date.now()}.jpg`;
+    const storageRef = ref(storage, `images/${filename}`);
 
     // 3. Upload Blob ke Storage
     const result = await uploadBytes(storageRef, blob as Blob);
@@ -240,14 +263,27 @@ const sendMessage = async () => {
   const [imageUri, setImageUri] = useState<string | null>(null); // State buat gambar sementara
 
   // Fungsi buat buka galeri HP
-  const pickImage = () => {
-    launchImageLibrary({ mediaType: 'photo', quality: 0.5 }, (response) => {
+  const pickImage = async () => {
+    // 1. Minta izin
+    const hasPermission = await requestPermission();
+    if(!hasPermission) {
+      Alert.alert("Ditolak", "Gagal membuka galeri karena izin ditolak.");
+      return;
+    }
+
+    // 2. Kalo diizinkan, bru buka galeri
+    launchImageLibrary({ 
+      mediaType: 'photo', 
+      quality: 0.5,
+      includeBase64: false, // katanya biar ringan
+    }, (response) => {
         if (response.didCancel) {
             console.log('User batal pilih gambar');
         } else if (response.errorMessage) {
             console.log('Error ImagePicker: ', response.errorMessage);
         } else if (response.assets && response.assets.length > 0) {
             const source = response.assets[0].uri;
+            console.log("URI Gambar:", source);
             setImageUri(source || null); // Simpen gambar yg dipilih
         }
     });
