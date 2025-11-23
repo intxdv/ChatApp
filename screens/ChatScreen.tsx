@@ -16,6 +16,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import {
   addDoc,
@@ -29,6 +30,7 @@ import {
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../App";
 import { count } from "firebase/firestore";
+import { create } from "react-native/types_generated/Libraries/ReactNative/ReactFabricPublicInstance/ReactNativeAttributePayload";
 
 type MessageType = {
   id: string;
@@ -107,36 +109,92 @@ export default function ChatScreen({ route }: Props) {
 //       console.error("Error sending message:", error);
 //     }
 //   };
-
-const sendMessage = async () => {
-    console.log("1. Tombol ditekan"); 
-    console.log("2. Isi pesan:", message); // Cek apa isi pesannya
-    console.log("3. Nama pengirim:", name); // Cek siapa pengirimnya
-
-    if (!message.trim()) {
-      console.log("GAGAL: Pesan kosong"); // Log ke console juga
-      Alert.alert("Debug Info", "Pesan dianggap kosong.");
-      return;
-    }
-    
-    if (!name) {
-       console.log("GAGAL: Nama kosong"); // Log ke console juga
-       Alert.alert("Debug Info", "Nama pengirim tidak ditemukan!");
-       return;
-    }
-
-    console.log("4. Mencoba kirim ke Firebase..."); // Log sebelum aksi
+const uploadImage = async (uri: string) => {
     try {
-      await addDoc(messagesCollection, {
-        text: message,
-        user: name,
-        createdAt: serverTimestamp(),
-      });
-      console.log("5. BERHASIL TERKIRIM!"); 
-      setMessage(""); 
+        // 1. Ngubah URI gambar jadi Blob (data mentah)
+        const response = await fetch(uri);
+        const blob = await response.blob();
+
+        // 2. Buat nama file unik
+        const filename = 'chat_${Date.now()}.jpg';
+
+        // 3. Menyiapkan lokasi di storage
+        const storageRef = ref(storage, 'images/${filename}');
+
+        // 4. Upload
+        await uploadBytes(storageRef, blob);
+
+        // 5. Ambil URL download-nya biar bisa ditampilkan
+        const downloadUrl = await getDownloadURL(storageRef);
+        return downloadUrl;
+    } catch (error) {
+        console.log("Gagal upload gambar:", error);
+        throw error;
+    }
+}
+const sendMessage = async () => {
+    // console.log("1. Tombol ditekan"); 
+    // console.log("2. Isi pesan:", message); // Cek apa isi pesannya
+    // console.log("3. Nama pengirim:", name); // Cek siapa pengirimnya
+
+    // if (!message.trim()) {
+    //   console.log("GAGAL: Pesan kosong"); // Log ke console juga
+    //   Alert.alert("Debug Info", "Pesan dianggap kosong.");
+    //   return;
+    // }
+    
+    // if (!name) {
+    //    console.log("GAGAL: Nama kosong"); // Log ke console juga
+    //    Alert.alert("Debug Info", "Nama pengirim tidak ditemukan!");
+    //    return;
+    // }
+
+    // console.log("4. Mencoba kirim ke Firebase..."); // Log sebelum aksi
+    // try {
+    //   await addDoc(messagesCollection, {
+    //     text: message,
+    //     user: name,
+    //     createdAt: serverTimestamp(),
+    //   });
+    //   console.log("5. BERHASIL TERKIRIM!"); 
+    //   setMessage(""); 
+    // } catch (error: any) {
+    //   console.error("ERROR:", error);
+    //   Alert.alert("Gagal Kirim", error.message);
+    // }
+
+    // 1. Cek: "Jangan kirim kalo teks DAN gambar kosong"
+    if (!message.trim() && !imageUri) {
+        Alert.alert("Eits!", "Ketik pesan atau pilih gambar dulu dung.");
+        return;
+    }
+
+    try {
+        // 2. Siapin wadah buat URL gambar
+        let finalImageUrl = null;
+
+        // 3. Kalau ada gambar dipilih upload dulu
+        if (imageUri) {
+            console.log("Sedang mengupload gambar...");
+            finalImageUrl = await uploadImage(imageUri);
+            console.log("Upload selesai! Link:", finalImageUrl);
+        }
+
+        // 4. Kirim data ke Firestore (Teks + Link Gambar)
+        await addDoc(messagesCollection, {
+            text: message,
+            user: name,
+            createdAt: serverTimestamp(),
+            imageUri: finalImageUrl,
+        });
+
+        // 5. Bersih-bersih setelah berhasil
+        setMessage("");
+        setImageUri(null);
+        console.log("Pesan & Gambar terkirim!");
     } catch (error: any) {
-      console.error("ERROR:", error);
-      Alert.alert("Gagal Kirim", error.message);
+        console.log("Gagal kirim: ", error);
+        Alert.alert("Gagal", error.message);
     }
   };
 
@@ -173,10 +231,12 @@ const sendMessage = async () => {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={90}
+    <View
+        style={{  flex: 1, backgroundColor: "#fff" }}
+    // <KeyboardAvoidingView 
+    //   style={{ flex: 1 }}
+    //   behavior={Platform.OS === "ios" ? "padding" : undefined}
+    //   keyboardVerticalOffset={90}
     >
       <FlatList
         data={messages}
@@ -186,7 +246,20 @@ const sendMessage = async () => {
         inverted={false}
         style={{ flex: 1 }}
       />
-      
+      {imageUri &&(
+        <View style={styles.previewContainer}>
+            <Image
+                source={{ uri: imageUri }}
+                style={styles.previewImage}
+            />
+            <TouchableOpacity
+                style={styles.removeButton}
+                onPress={() => setImageUri(null)}
+            >
+                <Text style={styles.removeText}>X</Text>
+            </TouchableOpacity>
+        </View> 
+      )}
       <View style={styles.inputContainer}>
         <TouchableOpacity
             style={styles.attachButton}
@@ -210,7 +283,8 @@ const sendMessage = async () => {
           <Text style={styles.sendButtonText}>Kirim</Text>
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    {/* </KeyboardAvoidingView> */}
+    </View>
   );
 }
 
@@ -287,5 +361,34 @@ const styles = StyleSheet.create({
   attachText: {
     fontSize: 30,
     color: "#007AFF",
-  }
+  },
+  previewContainer: {
+    padding: 10,
+    borderTopWidth: 1,
+    borderColor: "#ddd",
+    backgroundColor: "#f9f9f9",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  previewImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 10,
+  },
+  removeButton: {
+    position: "absolute",
+    top: 5,
+    left: 105,
+    backgroundColor: "red",
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  removeText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
 });
