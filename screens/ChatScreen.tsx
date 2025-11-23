@@ -134,29 +134,33 @@ export default function ChatScreen({ route }: Props) {
 //   };
 const uploadImage = async (uri: string) => {
   try {
-    // 1. Pake XMLHttpRequest untuk ubah file jadi Blob
-    const blob = await new Promise((resolve, reject)=> {
+    // 1. Ambil data file sebagai ArrayBuffer
+    const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.onload = function() {
         resolve(xhr.response);
       };
-      xhr.onerror = function (e) {
-        console.log("XHR Error Detail:", e);
-        reject(new TypeError("Network request failed during Blob conversion"));
+      xhr.onerror = function(e) {
+        console.log("XHR Error:", e);
+        reject(new TypeError("Network request failed during ArrayBuffer convertion"));
       };
-      xhr.responseType = "blob";
+      xhr.responseType = "arraybuffer";
       xhr.open("GET", uri, true);
       xhr.send(null);
     });
 
-    // 2. Upload ke Firebase
+    // 2. Buat referensi file di Firestore
     const filename = `chat_${Date.now()}.jpg`;
     const storageRef = ref(storage, `images/${filename}`);
+    
+    // 3. Upload ArrayBuffer ke Firestore
+    const metadata = {
+      contentType: 'image/jpeg',
+    };
 
-    // 3. Upload Blob ke Storage
-    const result = await uploadBytes(storageRef, blob as Blob);
+    const result = await uploadBytes(storageRef, buffer, metadata);
 
-    // 4. Ambil link download
+    // 4. Ambil URL Download
     const downloadUrl = await getDownloadURL(result.ref);
     return downloadUrl;
   } catch (error) {
