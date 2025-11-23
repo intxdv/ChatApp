@@ -29,8 +29,8 @@ import {
 } from "../firebase";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../App";
-import { count } from "firebase/firestore";
-import { create } from "react-native/types_generated/Libraries/ReactNative/ReactFabricPublicInstance/ReactNativeAttributePayload";
+// import { count } from "firebase/firestore";
+// import { create } from "react-native/types_generated/Libraries/ReactNative/ReactFabricPublicInstance/ReactNativeAttributePayload";
 
 type MessageType = {
   id: string;
@@ -110,28 +110,38 @@ export default function ChatScreen({ route }: Props) {
 //     }
 //   };
 const uploadImage = async (uri: string) => {
-    try {
-        // 1. Ngubah URI gambar jadi Blob (data mentah)
-        const response = await fetch(uri);
-        const blob = await response.blob();
+  try {
+    // 1. Pake XMLHttpRequest untuk ubah file jadi Blob
+    const blob = await new Promise((resolve, reject)=> {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = function() {
+        resolve(xhr.response);
+      };
+      xhr.onerror = function (e) {
+        console.log("XHR Error:", e);
+        reject(new TypeError("Network request failed during Blob conversion"));
+      };
+      xhr.responseType = "blob";
+      xhr.open("GET", uri, true);
+      xhr.send(null);
+    });
 
-        // 2. Buat nama file unik
-        const filename = 'chat_${Date.now()}.jpg';
+    // 2. Upload ke Firebase
+    const filename = 'chat_${Date.now()}.jpg';
+    const storageRef = ref(storage, 'images/${filename}');
 
-        // 3. Menyiapkan lokasi di storage
-        const storageRef = ref(storage, 'images/${filename}');
+    // 3. Upload Blob ke Storage
+    const result = await uploadBytes(storageRef, blob as Blob);
 
-        // 4. Upload
-        await uploadBytes(storageRef, blob);
+    // 4. Ambil link download
+    const downloadUrl = await getDownloadURL(result.ref);
+    return downloadUrl;
+  } catch (error) {
+    console.error("Gagal upload gambar:", error);
+    throw error;
+  }
+};
 
-        // 5. Ambil URL download-nya biar bisa ditampilkan
-        const downloadUrl = await getDownloadURL(storageRef);
-        return downloadUrl;
-    } catch (error) {
-        console.log("Gagal upload gambar:", error);
-        throw error;
-    }
-}
 const sendMessage = async () => {
     // console.log("1. Tombol ditekan"); 
     // console.log("2. Isi pesan:", message); // Cek apa isi pesannya
@@ -209,7 +219,20 @@ const sendMessage = async () => {
         ]}
       >
         <Text style={styles.sender}>{item.user}</Text>
-        <Text style={styles.msgText}>{item.text}</Text>
+
+        { // Kalo ada gambar
+          item.imageUrl && (
+            <Image
+              source={{  uri: item.imageUrl }}
+              style={{ width: 200, height: 150, borderRadius: 10, marginBottom: 5 }}
+              resizeMode="cover"
+            />
+          )
+        }
+
+        { // Kalo teks ga kosong
+          item.text ? <Text style={styles.msgText}>{item.text}</Text> : null
+        }
       </View>
     );
   };
