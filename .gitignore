@@ -48,6 +48,12 @@ yarn-error.log
 # For more information about the recommended setup visit:
 # https://docs.fastlane.tools/best-practices/source-control/
 
+# Firebase / Secrets
+firebaseConfig.ts
+google-services.json
+GoogleService-Info.plist
+
+
 **/fastlane/report.xml
 **/fastlane/Preview.html
 **/fastlane/screenshots

@@ -21,15 +21,7 @@ import {
     createUserWithEmailAndPassword,
     onAuthStateChanged,
 } from "firebase/auth";
-
-const firebaseConfig = {
-    apiKey              : "AIzaSyD4Ba1J5dMrVYkOx9k5MarkTb3NWJkEC5Y",
-    authDomain          : "chatapp-7f98a.firebaseapp.com",
-    projectId           : "chatapp-7f98a",
-    storageBucket       : "chatapp-7f98a.firebasestorage.app",
-    messagingSenderId   : "658266741364",
-    appId               : "1:658266741364:android:a9cbe6f11377918a398f21"
-};
+import { firebaseConfig } from "./firebaseConfig";
 
 const app = initializeApp(firebaseConfig);
 
